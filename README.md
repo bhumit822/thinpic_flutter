@@ -337,10 +337,11 @@ if (isCompressionSuccessful(result)) {
 ## Platform Support
 
 - ✅ Android (ARM64, x86_64)
-- ✅ iOS (ARM64, x86_64)
-- ✅ macOS (ARM64, x86_64)
-- ✅ Linux (x86_64)
-- ✅ Windows (x86_64)
+- ✅ iOS (ARM64, x86_64) (in progress)
+
+
+
+
 
 ## Dependencies
 
