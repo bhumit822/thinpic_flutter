@@ -26,6 +26,11 @@ typedef struct {
 
 // Main compression functions
 CompressedImageResult compress_image(const char* input_path, int quality);
+// New function with optional width and height parameters
+// If both width and height are provided, the smallest dimension will be used to maintain aspect ratio
+// If only one is provided, the other will be calculated to maintain aspect ratio
+// If both are 0 or negative, no resizing will be applied
+CompressedImageResult compress_image_with_size(const char* input_path, int quality, int target_width, int target_height);
 CompressedImageResult compress_large_image(const char* input_path, int quality);
 CompressedImageResult compress_large_dslr_image(const char* input_path, int quality);
 CompressedImageResult smart_compress_image(const char* input_path, int target_kb, int type);

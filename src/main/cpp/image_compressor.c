@@ -1,4 +1,4 @@
-#include <vips/vips.h>
+ #include <vips/vips.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -169,6 +169,310 @@ CompressedImageResult compress_image(const char* input_path, int quality) {
         }
         
         printf("[image_compressor] Scale factor: %f\n", scale);
+        
+        if (vips_resize(image, &processed_image, scale, 
+                "kernel", VIPS_KERNEL_LANCZOS3,  // High-quality kernel
+                NULL)) {
+            printf("[image_compressor] Error: Failed to resize image\n");
+            const char* error = vips_error_buffer();
+            if (error && strlen(error) > 0) {
+                printf("[image_compressor] VIPS error: %s\n", error);
+            }
+            vips_error_clear();
+            
+            // Try to compress original image without resizing
+            printf("[image_compressor] Trying to compress original image without resizing...\n");
+            g_object_unref(image);
+            pthread_mutex_unlock(&vips_mutex);
+            return result;
+        }
+        g_object_unref(image);
+        image = processed_image;
+        processed_image = NULL;
+        
+        // Get new dimensions
+        width = vips_image_get_width(image);
+        height = vips_image_get_height(image);
+        printf("[image_compressor] Image resized to: %dx%d\n", width, height);
+        
+        // Validate resized image
+        if (width <= 0 || height <= 0) {
+            printf("[image_compressor] Error: Invalid dimensions after resize\n");
+            g_object_unref(image);
+            pthread_mutex_unlock(&vips_mutex);
+            return result;
+        }
+    }
+    
+    // Convert to sRGB for consistent color space
+    printf("[image_compressor] Converting image to sRGB...\n");
+    vips_error_clear();
+    if (vips_copy(image, &processed_image, 
+            "interpretation", VIPS_INTERPRETATION_sRGB,
+            NULL)) {
+        printf("[image_compressor] Error: Failed to convert image to sRGB\n");
+        const char* error = vips_error_buffer();
+        if (error && strlen(error) > 0) {
+            printf("[image_compressor] VIPS error: %s\n", error);
+        }
+        vips_error_clear();
+        
+        // Try to compress without sRGB conversion
+        printf("[image_compressor] Trying to compress image without sRGB conversion...\n");
+        g_object_unref(image);
+        pthread_mutex_unlock(&vips_mutex);
+        return result;
+    }
+    
+    g_object_unref(image);
+    image = processed_image;
+    processed_image = NULL;
+    
+    // Validate final image before compression
+    if (!VIPS_IS_IMAGE(image)) {
+        printf("[image_compressor] Error: Invalid image after processing\n");
+        g_object_unref(image);
+        pthread_mutex_unlock(&vips_mutex);
+        return result;
+    }
+    
+    int final_width = vips_image_get_width(image);
+    int final_height = vips_image_get_height(image);
+    int final_bands = vips_image_get_bands(image);
+    printf("[image_compressor] Final image: %dx%d, %d bands\n", final_width, final_height, final_bands);
+    
+    // Compression with user-specified quality
+    printf("[image_compressor] Starting compression...\n");
+    vips_error_clear();
+    
+    // Use user-specified quality
+    int final_quality = quality;
+    printf("[image_compressor] Using quality: %d\n", final_quality);
+    
+    // Enhanced JPEG save options for better compression
+    int save_result = vips_jpegsave_buffer(image, &buffer, &buffer_size,
+        "Q", final_quality,
+        // "strip", TRUE,
+        "optimize_coding", TRUE,
+        "interlace", FALSE,  // Better for most images
+        "no_subsample", FALSE, // Allow subsampling for better compression
+        NULL);
+    
+    if (save_result == 0 && buffer && buffer_size > 0) {
+        // Compression successful
+        result.data = (uint8_t*)buffer;
+        result.length = buffer_size;
+        result.success = 1;
+        printf("[image_compressor] Compression successful: %zu bytes (quality: %d)\n", buffer_size, final_quality);
+        g_object_unref(image);
+        pthread_mutex_unlock(&vips_mutex);
+        return result;
+    }
+    
+    // If enhanced compression failed, try standard approach
+    printf("[image_compressor] Enhanced compression failed, trying standard approach...\n");
+    const char* error = vips_error_buffer();
+    if (error && strlen(error) > 0) {
+        printf("[image_compressor] VIPS error: %s\n", error);
+    }
+    vips_error_clear();
+    
+    // Free any existing buffer
+    if (buffer) {
+        g_free(buffer);
+        buffer = NULL;
+        buffer_size = 0;
+    }
+    
+    // Try with standard quality
+    save_result = vips_jpegsave_buffer(image, &buffer, &buffer_size,
+        "Q", quality,
+        // "strip", TRUE,
+        NULL);
+    
+    if (save_result == 0 && buffer && buffer_size > 0) {
+        result.data = (uint8_t*)buffer;
+        result.length = buffer_size;
+        result.success = 1;
+        printf("[image_compressor] Standard compression successful: %zu bytes\n", buffer_size);
+        g_object_unref(image);
+        pthread_mutex_unlock(&vips_mutex);
+        return result;
+    }
+    
+    // All compression attempts failed
+    printf("[image_compressor] Error: All compression attempts failed\n");
+    error = vips_error_buffer();
+    if (error && strlen(error) > 0) {
+        printf("[image_compressor] VIPS error: %s\n", error);
+    }
+    
+    // Cleanup
+    if (buffer) {
+        g_free(buffer);
+    }
+    g_object_unref(image);
+    vips_error_clear();
+    
+    pthread_mutex_unlock(&vips_mutex);
+    return result;
+}
+
+// Thread-safe image compression function with optional size parameters
+CompressedImageResult compress_image_with_size(const char* input_path, int quality, int target_width, int target_height) {
+    CompressedImageResult result = {NULL, 0, -1};
+    
+    // Input validation
+    if (!input_path || strlen(input_path) == 0) {
+        printf("[image_compressor] Error: Invalid input path\n");
+        return result;
+    }
+    
+    if (quality < 1 || quality > 100) {
+        printf("[image_compressor] Error: Quality must be between 1 and 100\n");
+        return result;
+    }
+    
+    // Check if file exists and get file size
+    FILE* file = fopen(input_path, "rb");
+    if (!file) {
+        printf("[image_compressor] Error: Cannot open file: %s\n", input_path);
+        return result;
+    }
+    
+    // Get file size to determine compression strategy
+    fseek(file, 0, SEEK_END);
+    long file_size = ftell(file);
+    fclose(file);
+    
+    printf("[image_compressor] Compressing image: %s (size: %ld bytes, quality: %d, target: %dx%d)\n", 
+           input_path, file_size, quality, target_width, target_height);
+    
+    // Initialize VIPS (thread-safe)
+    if (!ensure_vips_initialized()) {
+        printf("[image_compressor] Error: VIPS initialization failed\n");
+        return result;
+    }
+    
+    // Lock VIPS operations for this thread
+    pthread_mutex_lock(&vips_mutex);
+    
+    // Clear any previous errors
+    vips_error_clear();
+    
+    VipsImage* image = NULL;
+    VipsImage* processed_image = NULL;
+    void* buffer = NULL;
+    size_t buffer_size = 0;
+    
+    // Load image with error handling
+    printf("[image_compressor] Loading image...\n");
+    image = vips_image_new_from_file(input_path, 
+        "fail_on", VIPS_FAIL_ON_NONE,
+        "access", VIPS_ACCESS_SEQUENTIAL,
+        NULL);
+    
+    if (!image) {
+        printf("[image_compressor] Error: Failed to load image\n");
+        const char* error = vips_error_buffer();
+        if (error && strlen(error) > 0) {
+            printf("[image_compressor] VIPS error: %s\n", error);
+        }
+        vips_error_clear();
+        pthread_mutex_unlock(&vips_mutex);
+        return result;
+    }
+    
+    // Validate image object
+    if (!VIPS_IS_IMAGE(image)) {
+        printf("[image_compressor] Error: Invalid image object\n");
+        g_object_unref(image);
+        pthread_mutex_unlock(&vips_mutex);
+        return result;
+    }
+    
+    // Get image info
+    int width = vips_image_get_width(image);
+    int height = vips_image_get_height(image);
+    int bands = vips_image_get_bands(image);
+    
+    printf("[image_compressor] Image loaded: %dx%d, %d bands\n", width, height, bands);
+    
+    // Validate image dimensions
+    if (width <= 0 || height <= 0 || bands <= 0) {
+        printf("[image_compressor] Error: Invalid image dimensions\n");
+        g_object_unref(image);
+        pthread_mutex_unlock(&vips_mutex);
+        return result;
+    }
+    
+    // Calculate resize parameters
+    int new_width = width;
+    int new_height = height;
+    int needs_resize = 0;
+    double scale = 1.0;
+    
+    // Check if user provided target dimensions
+    if (target_width > 0 || target_height > 0) {
+        needs_resize = 1;
+        
+        if (target_width > 0 && target_height > 0) {
+            // Both dimensions provided - use the smallest to maintain aspect ratio
+            double scale_width = (double)target_width / width;
+            double scale_height = (double)target_height / height;
+            
+            if (scale_width < scale_height) {
+                // Width is the limiting factor
+                scale = scale_width;
+                new_width = target_width;
+                new_height = (int)(height * scale_width);
+            } else {
+                // Height is the limiting factor
+                scale = scale_height;
+                new_height = target_height;
+                new_width = (int)(width * scale_height);
+            }
+            printf("[image_compressor] Both dimensions provided, using smallest scale: %f\n", scale);
+        } else if (target_width > 0) {
+            // Only width provided
+            scale = (double)target_width / width;
+            new_width = target_width;
+            new_height = (int)(height * scale);
+            printf("[image_compressor] Only width provided, calculated height: %d\n", new_height);
+        } else {
+            // Only height provided
+            scale = (double)target_height / height;
+            new_height = target_height;
+            new_width = (int)(width * scale);
+            printf("[image_compressor] Only height provided, calculated width: %d\n", new_width);
+        }
+        
+        printf("[image_compressor] Resizing from %dx%d to %dx%d (scale: %f)\n", 
+               width, height, new_width, new_height, scale);
+    } else {
+        // No target dimensions provided - use original logic for large images
+        const int max_dimension = 6000;
+        if (width > max_dimension || height > max_dimension) {
+            needs_resize = 1;
+            if (width > height) {
+                scale = (double)max_dimension / width;
+                new_width = max_dimension;
+                new_height = (int)(height * scale);
+            } else {
+                scale = (double)max_dimension / height;
+                new_height = max_dimension;
+                new_width = (int)(width * scale);
+            }
+            printf("[image_compressor] Large image auto-resize from %dx%d to %dx%d\n", 
+                   width, height, new_width, new_height);
+        }
+    }
+    
+    // Process image (resize if needed and convert to sRGB)
+    vips_error_clear();
+    
+    if (needs_resize) {
+        printf("[image_compressor] Resizing image with high quality...\n");
         
         if (vips_resize(image, &processed_image, scale, 
                 "kernel", VIPS_KERNEL_LANCZOS3,  // High-quality kernel

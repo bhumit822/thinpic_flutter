@@ -43,6 +43,40 @@ class ThinpicFlutterBindings {
   late final _compress_image = _compress_imagePtr
       .asFunction<CompressedImageResult Function(ffi.Pointer<ffi.Char>, int)>();
 
+  /// New function with optional width and height parameters
+  /// If both width and height are provided, the smallest dimension will be used to maintain aspect ratio
+  /// If only one is provided, the other will be calculated to maintain aspect ratio
+  /// If both are 0 or negative, no resizing will be applied
+  CompressedImageResult compress_image_with_size(
+    ffi.Pointer<ffi.Char> input_path,
+    int quality,
+    int target_width,
+    int target_height,
+  ) {
+    return _compress_image_with_size(
+      input_path,
+      quality,
+      target_width,
+      target_height,
+    );
+  }
+
+  late final _compress_image_with_sizePtr =
+      _lookup<
+        ffi.NativeFunction<
+          CompressedImageResult Function(
+            ffi.Pointer<ffi.Char>,
+            ffi.Int,
+            ffi.Int,
+            ffi.Int,
+          )
+        >
+      >('compress_image_with_size');
+  late final _compress_image_with_size = _compress_image_with_sizePtr
+      .asFunction<
+        CompressedImageResult Function(ffi.Pointer<ffi.Char>, int, int, int)
+      >();
+
   CompressedImageResult compress_large_image(
     ffi.Pointer<ffi.Char> input_path,
     int quality,

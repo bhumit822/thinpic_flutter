@@ -32,6 +32,25 @@ CompressedImageResult compressImage(String inputPath, int quality) {
   }
 }
 
+CompressedImageResult compressImageWithSize(
+  String inputPath,
+  int quality,
+  int targetWidth,
+  int targetHeight,
+) {
+  final inputPathPtr = inputPath.toNativeUtf8();
+  try {
+    return _bindings.compress_image_with_size(
+      inputPathPtr.cast<Char>(),
+      quality,
+      targetWidth,
+      targetHeight,
+    );
+  } finally {
+    malloc.free(inputPathPtr);
+  }
+}
+
 CompressedImageResult compressLargeImage(String inputPath, int quality) {
   final inputPathPtr = inputPath.toNativeUtf8();
   try {

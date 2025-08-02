@@ -8,6 +8,41 @@ This project is a starting point for a Flutter
 [FFI plugin](https://flutter.dev/to/ffi-package),
 a specialized package that includes native code directly invoked with Dart FFI.
 
+## Features
+
+### Image Compression Functions
+
+- **compressImage(inputPath, quality)**: Basic image compression with quality control
+- **compressImageWithSize(inputPath, quality, width, height)**: Advanced compression with optional size parameters
+  - If both width and height are provided, the smallest dimension is used to maintain aspect ratio
+  - If only width is provided, height is calculated to maintain aspect ratio
+  - If only height is provided, width is calculated to maintain aspect ratio
+  - If both are 0 or negative, no resizing is applied (same as basic compression)
+- **compressLargeImage(inputPath, quality)**: Optimized for large images
+- **compressLargeDslrImage(inputPath, quality)**: Optimized for DSLR images
+- **smartCompressImage(inputPath, targetKb, type)**: Smart compression targeting specific file size
+
+### Usage Examples
+
+```dart
+import 'package:thinpic_flutter/thinpic_flutter.dart';
+
+// Basic compression
+final result = compressImage('/path/to/image.jpg', 80);
+
+// Compression with size constraints
+final result1 = compressImageWithSize('/path/to/image.jpg', 80, 1920, 0); // Width only
+final result2 = compressImageWithSize('/path/to/image.jpg', 80, 0, 1080); // Height only
+final result3 = compressImageWithSize('/path/to/image.jpg', 80, 1920, 1080); // Both dimensions
+
+// Check if compression was successful
+if (isCompressionSuccessful(result)) {
+  final bytes = compressedResultToBytes(result);
+  // Use the compressed image bytes
+  freeCompressedBuffer(result.data); // Don't forget to free the buffer
+}
+```
+
 ## Project structure
 
 This template uses the following structure:

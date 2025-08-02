@@ -1,7 +1,7 @@
 name: thinpic_flutter
 description: "A new Flutter FFI plugin project."
 version: 0.0.1
-homepage:
+homepage: https://github.com/bhumit822/thinpic_flutter
 
 environment:
   sdk: ^3.8.1
