@@ -1,5 +1,5 @@
 name: thinpic_flutter
-description: "A new Flutter FFI plugin project."
+description: "A Flutter image compression library using the powerful C language VIPS library"
 version: 0.0.1
 homepage: https://github.com/bhumit822/thinpic_flutter
 

@@ -10,7 +10,7 @@ A high-performance Flutter FFI plugin for image compression using the VIPS image
 - **Memory Efficient**: Automatic buffer management and cleanup
 - **Thread-Safe**: Thread-safe operations with proper synchronization
 - **Quality Control**: Precise quality settings from 1-100
-- **Smart Compression**: Automatically adjusts quality to meet target file sizes (be cautious when using this method).
+- **Smart Compression**: Automatic quality adjustment to meet target file sizes
 
 ## Installation
 
@@ -44,7 +44,7 @@ final result = compressImage('/path/to/image.jpg', 80);
 if (isCompressionSuccessful(result)) {
   final bytes = compressedResultToBytes(result);
   // Use the compressed image bytes
-  freeCompressedBuffer(result.data); // Don't forget to free the buffer
+  freeCompressedBuffer(result.data); // Important: Free the buffer to prevent memory leaks
 }
 ```
 
@@ -214,7 +214,7 @@ Frees the native memory buffer to prevent memory leaks.
 ```dart
 final result = compressImage('/path/to/image.jpg', 80);
 // Use the result...
-freeCompressedBuffer(result.data); // Always free the buffer when done
+  freeCompressedBuffer(result.data); // Important: Free the buffer to prevent memory leaks
 ```
 
 #### `getImageDimensions(ImageInfo info)`
@@ -288,7 +288,7 @@ class ImageInfo {
 
 ### 1. Memory Management
 
-Always free the compressed buffer when you're done with it:
+Always free the compressed buffer when you're done with it to prevent memory leaks:
 
 ```dart
 final result = compressImage('/path/to/image.jpg', 80);
@@ -298,7 +298,7 @@ try {
     // Use the bytes...
   }
 } finally {
-  freeCompressedBuffer(result.data); // Always free!
+  freeCompressedBuffer(result.data); // Important: Free the buffer
 }
 ```
 
