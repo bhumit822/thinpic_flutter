@@ -5,7 +5,6 @@ A high-performance Flutter FFI plugin for image compression using the VIPS image
 ## Features
 
 - **Multiple Compression Strategies**: Basic, size-constrained, large image, DSLR, and smart compression
-- **Cross-Platform**: Works on Android, iOS, macOS, Linux, and Windows
 - **High Performance**: Native C implementation using VIPS library
 - **Memory Efficient**: Automatic buffer management and cleanup
 - **Thread-Safe**: Thread-safe operations with proper synchronization
