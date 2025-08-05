@@ -1,16 +1,15 @@
 # thinpic_flutter
 
-A high-performance Flutter FFI plugin for image compression using the VIPS image processing library. This plugin provides efficient image compression with various optimization strategies for different use cases.
+A high-performance Flutter FFI plugin for image compression using the VIPS image processing library. This plugin provides efficient image compression with various optimization strategies for different use cases and supports multiple image formats.
 
 ## Features
 
-- **Multiple Compression Strategies**: Basic, size-constrained, large image, DSLR, and smart compression
-- **Cross-Platform**: Works on Android, iOS, macOS, Linux, and Windows
+- **Multiple Image Formats**: Support for JPEG, WebP, and AUTO format detection
+- **Cross-Platform**: Works on Android and iOS (in roadmap)
 - **High Performance**: Native C implementation using VIPS library
 - **Memory Efficient**: Automatic buffer management and cleanup
 - **Thread-Safe**: Thread-safe operations with proper synchronization
 - **Quality Control**: Precise quality settings from 1-100
-- **Smart Compression**: Automatic quality adjustment to meet target file sizes
 
 ## Installation
 
@@ -21,288 +20,109 @@ dependencies:
   thinpic_flutter: ^0.0.1
 ```
 
+## Supported Image Formats
+
+The plugin supports the following image formats:
+
+- **JPEG** (`FORMAT_JPEG`): Standard JPEG compression
+- **WebP** (`FORMAT_WEBP`): Modern WebP format with excellent compression
+- **AUTO** (`FORMAT_AUTO`): Automatic format detection based on file extension
+
+## Platform Support
+
+- ✅ **Android** (ARM64, x86_64)
+- 🚧 **iOS** (ARM64, x86_64) - In roadmap, working on it
+
 ## API Reference
 
-### Core Compression Functions
 
-#### `compressImage(String inputPath, int quality)`
 
-Basic image compression with quality control.
+#### `ThinPicCompress.getImageInfo(String imagePath)`
+
+Retrieves detailed information about an image without compression.
 
 **Parameters:**
-- `inputPath` (String): Path to the input image file
-- `quality` (int): Compression quality from 1-100 (1 = lowest, 100 = highest)
+- `imagePath` (String): Path to the input image file
 
-**Returns:** `CompressedImageResult`
+**Returns:** `Future<ImageInfoData?>`
 
 **Example:**
 ```dart
 import 'package:thinpic_flutter/thinpic_flutter.dart';
 
-final result = compressImage('/path/to/image.jpg', 80);
-
-if (isCompressionSuccessful(result)) {
-  final bytes = compressedResultToBytes(result);
-  // Use the compressed image bytes
-  freeCompressedBuffer(result.data); // Important: Free the buffer to prevent memory leaks
+final imageInfo = await ThinPicCompress.getImageInfo('/path/to/image.jpg');
+if (imageInfo != null) {
+  print('Image dimensions: ${imageInfo.width}x${imageInfo.height}');
 }
 ```
 
-#### `compressImageWithSize(String inputPath, int quality, int targetWidth, int targetHeight)`
+#### `ThinPicCompress.compressImage(String imagePath, {int quality = 80, ImageFormat format = ImageFormat.FORMAT_JPEG})`
 
-Advanced compression with optional size parameters and aspect ratio preservation.
+Compresses an image with format support and returns a temporary file.
 
 **Parameters:**
-- `inputPath` (String): Path to the input image file
+- `imagePath` (String): Path to the input image file
+- `quality` (int): Compression quality from 1-100 (default: 80)
+- `format` (ImageFormat): Target image format (default: JPEG)
+
+**Returns:** `Future<File?>` - Temporary file with compressed image
+
+**Example:**
+```dart
+import 'package:thinpic_flutter/thinpic_flutter.dart';
+
+// Basic JPEG compression
+final compressedFile = await ThinPicCompress.compressImage(
+  '/path/to/image.jpg', 
+  quality: 80,
+  format: ImageFormat.FORMAT_JPEG
+);
+
+// WebP compression
+final webpFile = await ThinPicCompress.compressImage(
+  '/path/to/image.jpg', 
+  quality: 85,
+  format: ImageFormat.FORMAT_WEBP
+);
+
+if (compressedFile != null) {
+  print('Compressed image saved to: ${compressedFile.path}');
+}
+```
+
+#### `ThinPicCompress.compressImageWithSizeAndFormat(String imagePath, int quality, int targetWidth, int targetHeight, ImageFormat format)`
+
+Compresses an image with size constraints and format support.
+
+**Parameters:**
+- `imagePath` (String): Path to the input image file
 - `quality` (int): Compression quality from 1-100
-- `targetWidth` (int): Target width in pixels (0 = no constraint)
-- `targetHeight` (int): Target height in pixels (0 = no constraint)
+- `targetWidth` (int): Target width in pixels
+- `targetHeight` (int): Target height in pixels
+- `format` (ImageFormat): Target image format
 
-**Resize Behavior:**
-- If both width and height are provided, the smallest dimension is used to maintain aspect ratio
-- If only width is provided, height is calculated to maintain aspect ratio
-- If only height is provided, width is calculated to maintain aspect ratio
-- If both are 0 or negative, no resizing is applied (same as basic compression)
-
-**Returns:** `CompressedImageResult`
+**Returns:** `Future<File?>` - Temporary file with compressed image
 
 **Example:**
 ```dart
-// Width only - height calculated automatically
-final result1 = compressImageWithSize('/path/to/image.jpg', 80, 1920, 0);
+import 'package:thinpic_flutter/thinpic_flutter.dart';
 
-// Height only - width calculated automatically
-final result2 = compressImageWithSize('/path/to/image.jpg', 80, 0, 1080);
+final compressedFile = await ThinPicCompress.compressImageWithSizeAndFormat(
+  '/path/to/image.jpg', 
+  80, 
+  1920, 
+  1080, 
+  ImageFormat.FORMAT_WEBP
+);
 
-// Both dimensions - smallest used to maintain aspect ratio
-final result3 = compressImageWithSize('/path/to/image.jpg', 80, 1920, 1080);
-
-// No resizing (same as basic compression)
-final result4 = compressImageWithSize('/path/to/image.jpg', 80, 0, 0);
-```
-
-#### `compressLargeImage(String inputPath, int quality)`
-
-Optimized compression for large images with enhanced memory management.
-
-**Parameters:**
-- `inputPath` (String): Path to the input image file
-- `quality` (int): Compression quality from 1-100
-
-**Returns:** `CompressedImageResult`
-
-**Use Case:** Best for images larger than 5MB or high-resolution photos.
-
-**Example:**
-```dart
-final result = compressLargeImage('/path/to/large_image.jpg', 85);
-```
-
-#### `compressLargeDslrImage(String inputPath, int quality)`
-
-Specialized compression optimized for DSLR camera images with enhanced quality preservation.
-
-**Parameters:**
-- `inputPath` (String): Path to the input image file
-- `quality` (int): Compression quality from 1-100
-
-**Returns:** `CompressedImageResult`
-
-**Use Case:** Best for professional DSLR photos that need high-quality compression.
-
-**Example:**
-```dart
-final result = compressLargeDslrImage('/path/to/dslr_photo.jpg', 90);
-```
-
-#### `smartCompressImage(String inputPath, int targetKb, int type)`
-
-Smart compression that automatically adjusts quality to meet target file size.
-
-**Parameters:**
-- `inputPath` (String): Path to the input image file
-- `targetKb` (int): Target file size in kilobytes
-- `type` (int): Compression type (1 = high quality, 0 = low quality)
-
-**Quality Strategy:**
-- **High Quality (type = 1)**: Starts at 93% quality, applies 1.3x resize, targets 20% tolerance
-- **Low Quality (type = 0)**: Starts at 85% quality, no resize, targets 20% tolerance
-
-**Returns:** `CompressedImageResult`
-
-**Example:**
-```dart
-// High quality compression targeting 500KB
-final result1 = smartCompressImage('/path/to/image.jpg', 500, 1);
-
-// Low quality compression targeting 200KB
-final result2 = smartCompressImage('/path/to/image.jpg', 200, 0);
-```
-
-### Utility Functions
-
-#### `getImageInfo(String inputPath)`
-
-Retrieves detailed information about an image without compression.
-
-**Parameters:**
-- `inputPath` (String): Path to the input image file
-
-**Returns:** `ImageInfo`
-
-**ImageInfo Properties:**
-- `width` (int): Image width in pixels
-- `height` (int): Image height in pixels
-- `bands` (int): Number of color bands (3 for RGB, 4 for RGBA, etc.)
-- `orientation` (int): Image orientation metadata
-- `needs_resize` (int): Whether resizing is recommended
-- `new_width` (int): Recommended new width
-- `new_height` (int): Recommended new height
-
-**Example:**
-```dart
-final info = getImageInfo('/path/to/image.jpg');
-final (width, height) = getImageDimensions(info);
-print('Image dimensions: ${width}x${height}');
-```
-
-#### `isCompressionSuccessful(CompressedImageResult result)`
-
-Checks if compression was successful.
-
-**Parameters:**
-- `result` (CompressedImageResult): Result from any compression function
-
-**Returns:** `bool`
-
-**Example:**
-```dart
-final result = compressImage('/path/to/image.jpg', 80);
-if (isCompressionSuccessful(result)) {
-  // Compression succeeded
-} else {
-  // Compression failed
-}
-```
-
-#### `compressedResultToBytes(CompressedImageResult result)`
-
-Converts compression result to Dart bytes.
-
-**Parameters:**
-- `result` (CompressedImageResult): Result from any compression function
-
-**Returns:** `Uint8List`
-
-**Example:**
-```dart
-final result = compressImage('/path/to/image.jpg', 80);
-if (isCompressionSuccessful(result)) {
-  final bytes = compressedResultToBytes(result);
-  // Use bytes for file writing, network upload, etc.
-}
-```
-
-#### `freeCompressedBuffer(Pointer<Uint8> buffer)`
-
-Frees the native memory buffer to prevent memory leaks.
-
-**Parameters:**
-- `buffer` (Pointer<Uint8>): Buffer pointer from compression result
-
-**Example:**
-```dart
-final result = compressImage('/path/to/image.jpg', 80);
-// Use the result...
-  freeCompressedBuffer(result.data); // Important: Free the buffer to prevent memory leaks
-```
-
-#### `getImageDimensions(ImageInfo info)`
-
-Extracts width and height from ImageInfo as a tuple.
-
-**Parameters:**
-- `info` (ImageInfo): Image information from getImageInfo
-
-**Returns:** `(int width, int height)`
-
-**Example:**
-```dart
-final info = getImageInfo('/path/to/image.jpg');
-final (width, height) = getImageDimensions(info);
-```
-
-#### `shutdownVips()`
-
-Shuts down the VIPS library. Call this when your app is terminating.
-
-**Example:**
-```dart
-// Call this in your app's dispose or shutdown method
-shutdownVips();
-```
-
-#### `testVipsBasic()`
-
-Tests basic VIPS functionality. Returns 1 if successful, 0 if failed.
-
-**Returns:** `int`
-
-**Example:**
-```dart
-final testResult = testVipsBasic();
-if (testResult == 1) {
-  print('VIPS is working correctly');
-} else {
-  print('VIPS test failed');
-}
-```
-
-## Data Structures
-
-### CompressedImageResult
-
-```dart
-class CompressedImageResult {
-  Pointer<Uint8> data;    // Pointer to compressed image data
-  int length;             // Length of compressed data in bytes
-  int success;            // 1 if successful, 0 if failed
-}
-```
-
-### ImageInfo
-
-```dart
-class ImageInfo {
-  int width;              // Image width in pixels
-  int height;             // Image height in pixels
-  int bands;              // Number of color bands
-  int orientation;        // Image orientation
-  int needs_resize;       // Whether resizing is recommended
-  int new_width;          // Recommended new width
-  int new_height;         // Recommended new height
+if (compressedFile != null) {
+  print('Resized and compressed image saved to: ${compressedFile.path}');
 }
 ```
 
 ## Best Practices
 
-### 1. Memory Management
-
-Always free the compressed buffer when you're done with it to prevent memory leaks:
-
-```dart
-final result = compressImage('/path/to/image.jpg', 80);
-try {
-  if (isCompressionSuccessful(result)) {
-    final bytes = compressedResultToBytes(result);
-    // Use the bytes...
-  }
-} finally {
-  freeCompressedBuffer(result.data); // Important: Free the buffer
-}
-```
-
-### 2. Quality Settings
+### 1. Quality Settings
 
 - **90-100**: High quality, minimal compression
 - **70-89**: Good quality, moderate compression
@@ -310,44 +130,70 @@ try {
 - **30-49**: Low quality, high compression
 - **1-29**: Very low quality, maximum compression
 
-### 3. Function Selection
+### 2. Format Selection
 
-- **Basic compression**: Use `compressImage()` for simple needs
-- **Size constraints**: Use `compressImageWithSize()` for specific dimensions
-- **Large images**: Use `compressLargeImage()` for files > 5MB
-- **DSLR photos**: Use `compressLargeDslrImage()` for professional photos
-- **Target file size**: Use `smartCompressImage()` for specific file size requirements
+- **JPEG**: Good for photos, widely supported
+- **WebP**: Best for photos and web images (smallest size)
+- **AUTO**: Automatic format detection based on file extension
 
-### 4. Error Handling
+### 3. Error Handling
 
 ```dart
-final result = compressImage('/path/to/image.jpg', 80);
-if (isCompressionSuccessful(result)) {
-  final bytes = compressedResultToBytes(result);
-  if (bytes.isNotEmpty) {
-    // Use the compressed image
-  } else {
-    print('Compression succeeded but no data returned');
-  }
+final compressedFile = await ThinPicCompress.compressImage('/path/to/image.jpg');
+if (compressedFile != null) {
+  print('Compression successful: ${compressedFile.path}');
 } else {
   print('Compression failed');
 }
 ```
 
-## Platform Support
+### 4. Size Optimization
 
-- ✅ Android (ARM64, x86_64)
-- ✅ iOS (ARM64, x86_64) (in progress)
+#### Understanding File Size
 
+When converting between image formats, file size might increase due to:
 
+1. **Different compression algorithms**: Each format has different compression characteristics
+2. **Quality settings**: Different formats interpret quality parameters differently
+3. **Metadata**: Some formats preserve more metadata than others
 
+#### Best Practices for Size Reduction
 
+1. **Use WebP for Photos**:
+   ```dart
+   // WebP typically provides the smallest file size for photos
+   final result = await ThinPicCompress.compressImage(
+     '/path/to/photo.jpg', 
+     quality: 80, 
+     format: ImageFormat.FORMAT_WEBP
+   );
+   ```
+
+2. **Use JPEG for Maximum Compatibility**:
+   ```dart
+   // JPEG is widely supported across all platforms
+   final result = await ThinPicCompress.compressImage(
+     '/path/to/image.jpg', 
+     quality: 80, 
+     format: ImageFormat.FORMAT_JPEG
+   );
+   ```
+
+3. **Use AUTO for Automatic Selection**:
+   ```dart
+   // Let the plugin choose the best format based on file extension
+   final result = await ThinPicCompress.compressImage(
+     '/path/to/image.jpg', 
+     quality: 80, 
+     format: ImageFormat.FORMAT_AUTO
+   );
+   ```
 
 ## Dependencies
 
 - **VIPS**: High-performance image processing library
 - **FFI**: Dart foreign function interface
-- **pthread**: Thread safety and synchronization
+- **path_provider**: For temporary file management
 
 ## License
 

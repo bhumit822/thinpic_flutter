@@ -5,9 +5,7 @@ import 'dart:typed_data';
 import 'package:image_picker/image_picker.dart';
 import 'package:open_file/open_file.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:thinpic_flutter/thinpic_flutter.dart' as thinpic_flutter;
-import 'package:thinpic_flutter/thinpic_flutter_bindings_generated.dart'
-    as bindings;
+import 'package:thinpic_flutter/thinpic_flutter.dart';
 
 void main() {
   runApp(const MyApp());
@@ -25,15 +23,16 @@ class _MyAppState extends State<MyApp> {
   String? selectedImagePath;
   String compressionStatus = 'No image selected';
   bool isCompressing = false;
-  bindings.ImageInfo? imageInfo;
+  ImageInfoData? imageInfo;
   Uint8List? compressedImageData;
+  double? originalImageSize;
+  String? originalImageFormat;
+  String? compressedImageFormat;
   double? compressedImageSize;
 
   @override
   void initState() {
     super.initState();
-    // Test basic functionality
-    testResult = thinpic_flutter.testVipsBasic();
   }
 
   Future<void> pickImage() async {
@@ -50,13 +49,19 @@ class _MyAppState extends State<MyApp> {
       compressionStatus = 'Image selected: ${image.path.split('/').last}';
       imageInfo = null;
       compressedImageData = null;
+      originalImageSize = null;
+      originalImageFormat = null;
+      compressedImageFormat = null;
     });
 
     // Get image info
     try {
-      final info = thinpic_flutter.getImageInfo(selectedImagePath!);
+      final info = await ThinPicCompress.getImageInfo(selectedImagePath!);
       setState(() {
         imageInfo = info;
+
+        originalImageSize = File(selectedImagePath!).lengthSync() / 1024;
+        originalImageFormat = image.path.split('.').last;
       });
     } catch (e) {
       setState(() {
@@ -69,7 +74,7 @@ class _MyAppState extends State<MyApp> {
     if (selectedImagePath == null) return;
 
     try {
-      final info = thinpic_flutter.getImageInfo(selectedImagePath!);
+      final info = await ThinPicCompress.getImageInfo(selectedImagePath!);
       setState(() {
         imageInfo = info;
       });
@@ -81,6 +86,7 @@ class _MyAppState extends State<MyApp> {
   }
 
   // compress and save to temp file
+
   Future<void> compressImage(int quality) async {
     if (selectedImagePath == null) {
       setState(() {
@@ -96,29 +102,25 @@ class _MyAppState extends State<MyApp> {
 
     try {
       print('Compressing image: $selectedImagePath with quality: $quality');
-      final result = thinpic_flutter.compressImage(selectedImagePath!, quality);
+      final result = await ThinPicCompress.compressImage(
+        selectedImagePath!,
+        quality: quality,
+        format: ImageFormat.FORMAT_JPEG,
+      );
 
-      if (thinpic_flutter.isCompressionSuccessful(result)) {
-        final bytes = thinpic_flutter.compressedResultToBytes(result);
-        print('Compression successful, bytes length: ${bytes.length}');
-
-        // temp path
-        final tempPath = await getTemporaryDirectory();
-        // save to temp file
-        final tempFile = File('${tempPath.path}/compressed_image.jpg');
-        await tempFile.writeAsBytes(bytes);
-        // open the file
-        await OpenFile.open(tempFile.path);
+      if (result != null) {
+        final bytes = await result.readAsBytes();
+        final extension = result.path.split('.').last;
+        compressedImageFormat = extension;
+        await OpenFile.open(result.path);
         setState(() {
           compressedImageData = bytes;
           compressionStatus =
               'Compression successful! Size: ${bytes.length} bytes';
           compressedImageSize = bytes.length / 1024;
         });
-        // Free the buffer
-        thinpic_flutter.freeCompressedBuffer(result.data);
       } else {
-        print('Compression failed - result.success = ${result.success}');
+        print('Compression failed - result.success = ${result?.path}');
         setState(() {
           compressionStatus =
               'Compression failed - check if image format is supported';
@@ -132,181 +134,6 @@ class _MyAppState extends State<MyApp> {
     } finally {
       setState(() {
         isCompressing = false;
-      });
-    }
-  }
-
-  // smart compress and save to temp file
-  Future<void> smartCompressImage(int targetKb, int type) async {
-    if (selectedImagePath == null) {
-      setState(() {
-        compressionStatus = 'Please select an image first';
-      });
-      return;
-    }
-
-    setState(() {
-      isCompressing = true;
-      compressionStatus = 'Smart compressing to ${targetKb}KB...';
-    });
-
-    try {
-      print(
-        'Smart compressing image: $selectedImagePath to ${targetKb}KB, type: $type',
-      );
-      final result = thinpic_flutter.smartCompressImage(
-        selectedImagePath!,
-        targetKb,
-        type,
-      );
-
-      if (thinpic_flutter.isCompressionSuccessful(result)) {
-        final bytes = thinpic_flutter.compressedResultToBytes(result);
-        print('Smart compression successful, bytes length: ${bytes.length}');
-        setState(() async {
-          compressedImageData = bytes;
-          compressionStatus =
-              'Smart compression successful! Size: ${bytes.length} bytes';
-          compressedImageSize = bytes.length / 1024;
-          // temp path
-          final tempPath = await getTemporaryDirectory();
-          // save to temp file
-          final tempFile = File('${tempPath.path}/compressed_image.jpg');
-          await tempFile.writeAsBytes(bytes);
-          // open the file
-          await OpenFile.open(tempFile.path);
-        });
-
-        // Free the buffer
-        thinpic_flutter.freeCompressedBuffer(result.data);
-      } else {
-        print('Smart compression failed - result.success = ${result.success}');
-        setState(() {
-          compressionStatus =
-              'Smart compression failed - check if image format is supported';
-        });
-      }
-    } catch (e) {
-      print('Error during smart compression: $e');
-      setState(() {
-        compressionStatus = 'Error during smart compression: $e';
-      });
-    } finally {
-      setState(() {
-        isCompressing = false;
-      });
-    }
-  }
-
-  Future<void> compressLargeImage(int quality) async {
-    if (selectedImagePath == null) {
-      setState(() {
-        compressionStatus = 'Please select an image first';
-      });
-      return;
-    }
-
-    setState(() {
-      isCompressing = true;
-      compressionStatus = 'Compressing large image with quality: $quality...';
-    });
-
-    try {
-      print(
-        'Compressing large image: $selectedImagePath with quality: $quality',
-      );
-      final result = thinpic_flutter.compressLargeImage(
-        selectedImagePath!,
-        quality,
-      );
-
-      if (thinpic_flutter.isCompressionSuccessful(result)) {
-        final bytes = thinpic_flutter.compressedResultToBytes(result);
-        print(
-          'Large image compression successful, bytes length: ${bytes.length}',
-        );
-        setState(() async {
-          compressedImageData = bytes;
-          compressionStatus =
-              'Large image compression successful! Size: ${bytes.length} bytes';
-          compressedImageSize = bytes.length / 1024;
-          // temp path
-          final tempPath = await getTemporaryDirectory();
-          // save to temp file
-          final tempFile = File('${tempPath.path}/compressed_image.jpg');
-          await tempFile.writeAsBytes(bytes);
-          // open the file
-          await OpenFile.open(tempFile.path);
-        });
-
-        // Free the buffer
-        thinpic_flutter.freeCompressedBuffer(result.data);
-      } else {
-        print(
-          'Large image compression failed - result.success = ${result.success}',
-        );
-        setState(() {
-          compressionStatus =
-              'Large image compression failed - check if image format is supported';
-        });
-      }
-    } catch (e) {
-      print('Error during large image compression: $e');
-      setState(() {
-        compressionStatus = 'Error during large image compression: $e';
-      });
-    } finally {
-      setState(() {
-        isCompressing = false;
-      });
-    }
-  }
-
-  // Save compressed image to a specific directory with custom filename
-  Future<void> saveCompressedImageToDirectory(
-    String filename, {
-    String? directory,
-  }) async {
-    if (compressedImageData == null) {
-      setState(() {
-        compressionStatus =
-            'No compressed image available. Please compress an image first.';
-      });
-      return;
-    }
-
-    try {
-      // Get the documents directory or use the specified directory
-      final Directory targetDir;
-      if (directory != null) {
-        targetDir = Directory(directory);
-        if (!await targetDir.exists()) {
-          await targetDir.create(recursive: true);
-        }
-      } else {
-        targetDir = await getApplicationDocumentsDirectory();
-      }
-
-      // Create the file path
-      final filePath = '${targetDir.path}/$filename';
-      final file = File(filePath);
-
-      // open the file
-      await OpenFile.open(filePath);
-
-      // Write the compressed image data
-      await file.writeAsBytes(compressedImageData!);
-
-      setState(() {
-        compressionStatus = 'Image saved successfully to: $filePath';
-      });
-
-      // Open the saved file
-      await OpenFile.open(filePath);
-    } catch (e) {
-      print('Error saving compressed image: $e');
-      setState(() {
-        compressionStatus = 'Error saving image: $e';
       });
     }
   }
@@ -336,30 +163,28 @@ class _MyAppState extends State<MyApp> {
       );
 
       // First get the original image info
-      final originalInfo = thinpic_flutter.getImageInfo(selectedImagePath!);
-      print('Original image: ${originalInfo.width}x${originalInfo.height}');
+      final originalInfo = await ThinPicCompress.getImageInfo(
+        selectedImagePath!,
+      );
+      print('Original image: ${originalInfo?.width}x${originalInfo?.height}');
 
       // Compress with dimensions (this would need to be implemented in the native library)
       // For now, we'll use the regular compression and show the target dimensions
-      final result = thinpic_flutter.compressImageWithSize(
+      final result = await ThinPicCompress.compressImageWithSizeAndFormat(
         selectedImagePath!,
         quality,
         targetWidth,
         targetHeight,
+        ImageFormat.FORMAT_JPEG,
       );
 
-      if (thinpic_flutter.isCompressionSuccessful(result)) {
-        final bytes = thinpic_flutter.compressedResultToBytes(result);
+      if (result != null) {
+        final bytes = await result.readAsBytes();
         print(
           'Dimension compression successful, bytes length: ${bytes.length}',
         );
-        // temp path
-        final tempPath = await getTemporaryDirectory();
-        // save to temp file
-        final tempFile = File('${tempPath.path}/compressed_image.jpg');
-        await tempFile.writeAsBytes(bytes);
         // open the file
-        await OpenFile.open(tempFile.path);
+        await OpenFile.open(result.path);
 
         // Calculate compression ratio
         final originalSize = File(selectedImagePath!).lengthSync();
@@ -373,12 +198,9 @@ class _MyAppState extends State<MyApp> {
               'Size: ${bytes.length} bytes (${compressionRatio}% of original)';
           compressedImageSize = bytes.length / 1024;
         });
-
-        // Free the buffer
-        thinpic_flutter.freeCompressedBuffer(result.data);
       } else {
         print(
-          'Dimension compression failed - result.success = ${result.success}',
+          'Dimension compression failed - result.success = ${result?.path}',
         );
         setState(() {
           compressionStatus =
@@ -504,7 +326,11 @@ class _MyAppState extends State<MyApp> {
                             style: textStyle,
                           ),
                           Text(
-                            'Compressed size: ${compressedImageSize?.toStringAsFixed(2)} KB',
+                            'Original size: ${originalImageSize?.toStringAsFixed(2)} KB ($originalImageFormat)',
+                            style: textStyle,
+                          ),
+                          Text(
+                            'Compressed size: ${compressedImageSize?.toStringAsFixed(2)} KB ($compressedImageFormat)',
                             style: textStyle,
                           ),
                         ],
@@ -552,28 +378,7 @@ class _MyAppState extends State<MyApp> {
                             ],
                           ),
                           spacerSmall,
-                          Row(
-                            children: [
-                              Expanded(
-                                child: ElevatedButton(
-                                  onPressed: isCompressing
-                                      ? null
-                                      : () => compressLargeImage(80),
-                                  child: const Text('Large Image'),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: ElevatedButton(
-                                  onPressed: isCompressing
-                                      ? null
-                                      : () => smartCompressImage(100, 0),
-                                  child: const Text('Smart (100KB)'),
-                                ),
-                              ),
-                            ],
-                          ),
-                          spacerSmall,
+
                           Row(
                             children: [
                               Expanded(
@@ -594,11 +399,11 @@ class _MyAppState extends State<MyApp> {
                                   onPressed: isCompressing
                                       ? null
                                       : () => compressImageWithDimensions(
-                                          4500,
+                                          3500,
                                           6000,
                                           80,
                                         ),
-                                  child: const Text('4500x6000 (80%)'),
+                                  child: const Text('3500x6000 (80%)'),
                                 ),
                               ),
                             ],
@@ -674,21 +479,6 @@ class _MyAppState extends State<MyApp> {
                 spacerMedium,
 
                 // Shutdown button
-                Center(
-                  child: ElevatedButton(
-                    onPressed: () {
-                      thinpic_flutter.shutdownVips();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Vips shutdown called')),
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      foregroundColor: Colors.white,
-                    ),
-                    child: const Text('Shutdown Vips'),
-                  ),
-                ),
               ],
             ),
           ),
