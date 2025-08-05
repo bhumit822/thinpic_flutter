@@ -3,7 +3,7 @@
 A high-performance Flutter FFI plugin for image compression using the VIPS image processing library. This plugin provides efficient image compression with various optimization strategies for different use cases and supports multiple image formats.
 
 <div align="center">
-  <img src="sample/sample.gif" alt="ThinPic Flutter Demo" width="300">
+  <img src="https://github.com/bhumit822/thinpic_flutter/blob/main/sample/sample.gif?raw=true" alt="ThinPic Flutter Demo" width="300">
 </div>
 
 ## Features
