@@ -19,7 +19,6 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  late int testResult;
   String? selectedImagePath;
   String compressionStatus = 'No image selected';
   bool isCompressing = false;
@@ -29,6 +28,7 @@ class _MyAppState extends State<MyApp> {
   String? originalImageFormat;
   String? compressedImageFormat;
   double? compressedImageSize;
+  String? compressedImagePath;
 
   @override
   void initState() {
@@ -112,6 +112,7 @@ class _MyAppState extends State<MyApp> {
         final bytes = await result.readAsBytes();
         final extension = result.path.split('.').last;
         compressedImageFormat = extension;
+        compressedImagePath = result.path;
         await OpenFile.open(result.path);
         setState(() {
           compressedImageData = bytes;
@@ -184,6 +185,7 @@ class _MyAppState extends State<MyApp> {
           'Dimension compression successful, bytes length: ${bytes.length}',
         );
         // open the file
+        compressedImagePath = result.path;
         await OpenFile.open(result.path);
 
         // Calculate compression ratio
@@ -242,27 +244,6 @@ class _MyAppState extends State<MyApp> {
                   'ThinPic Flutter - Image Compression Demo',
                   style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                   textAlign: TextAlign.center,
-                ),
-                spacerMedium,
-
-                // Test result
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Library Status:',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text('testVipsBasic() = $testResult', style: textStyle),
-                      ],
-                    ),
-                  ),
                 ),
                 spacerMedium,
 
@@ -445,39 +426,20 @@ class _MyAppState extends State<MyApp> {
                   spacerMedium,
                 ],
 
-                // Available functions info
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Available Functions:',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          '• compressImage(inputPath, quality)\n'
-                          '• compressLargeImage(inputPath, quality)\n'
-                          '• compressLargeDslrImage(inputPath, quality)\n'
-                          '• smartCompressImage(inputPath, targetKb, type)\n'
-                          '• getImageInfo(inputPath)\n'
-                          '• freeCompressedBuffer(buffer)\n'
-                          '• shutdownVips()\n'
-                          '• testVipsBasic()',
-                          style: TextStyle(fontSize: 14),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
                 spacerMedium,
-
+                // open original image and compressed image
+                Row(
+                  children: [
+                    ElevatedButton(
+                      onPressed: () => OpenFile.open(selectedImagePath!),
+                      child: const Text('Open Original Image'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () => OpenFile.open(compressedImagePath!),
+                      child: const Text('Open Compressed Image'),
+                    ),
+                  ],
+                ),
                 // Shutdown button
               ],
             ),
