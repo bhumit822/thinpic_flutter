@@ -426,7 +426,6 @@ class _MyAppState extends State<MyApp> {
                   spacerMedium,
                 ],
 
-                spacerMedium,
                 // open original image and compressed image
                 Row(
                   children: [
@@ -440,6 +439,7 @@ class _MyAppState extends State<MyApp> {
                     ),
                   ],
                 ),
+                spacerMedium,
                 // Shutdown button
               ],
             ),
