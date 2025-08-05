@@ -21,8 +21,10 @@ Add this to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  thinpic_flutter: ^0.0.1
+  thinpic_flutter: ^0.0.4
 ```
+
+Or install from [pub.dev](https://pub.dev/packages/thinpic_flutter):
 
 ## Supported Image Formats
 
@@ -210,4 +212,8 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## Support
 
 For issues and questions, please visit the [GitHub repository](https://github.com/bhumit822/thinpic_flutter).
+
+## Connect
+
+- **LinkedIn**: [Bhumit Anatala](https://www.linkedin.com/in/bhumit-antala-73376488/)
 
