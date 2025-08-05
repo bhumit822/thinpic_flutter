@@ -2,6 +2,10 @@
 
 A high-performance Flutter FFI plugin for image compression using the VIPS image processing library. This plugin provides efficient image compression with various optimization strategies for different use cases and supports multiple image formats.
 
+<div align="center">
+  <img src="sample/sample.gif" alt="ThinPic Flutter Demo" width="300">
+</div>
+
 ## Features
 
 - **Multiple Image Formats**: Support for JPEG, WebP, and AUTO format detection
