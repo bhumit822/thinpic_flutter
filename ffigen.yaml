@@ -4,7 +4,7 @@ description: |
   Bindings for `src/thinpic_flutter.h`.
 
   Regenerate bindings with `dart run ffigen --config ffigen.yaml`.
-output: 'lib/thinpic_flutter_bindings_generated.dart'
+output: 'lib/generated/thinpic_flutter_bindings_generated.dart'
 headers:
   entry-points:
     - 'src/main/cpp/image_compressor.h'
