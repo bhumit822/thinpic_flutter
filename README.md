@@ -213,7 +213,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 For issues and questions, please visit the [GitHub repository](https://github.com/bhumit822/thinpic_flutter).
 
-## Connect
+## Developer
 
-- **LinkedIn**: [Bhumit Anatala](https://www.linkedin.com/in/bhumit-antala-73376488/)
+- **BhumitAntala**: [Bhumit Anatala(LinkedIn)](https://www.linkedin.com/in/bhumit-antala-73376488/)
 
