@@ -5,10 +5,10 @@ homepage: http://framira.com/
 repository: https://github.com/bhumit822/thinpic_flutter
 
 topics:
-  - image_compression
+  - image-compression
   - compression
   - thinpic
-  - thinpic_flutter
+  - thinpic-flutter
   - image
   
 
