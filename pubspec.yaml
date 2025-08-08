@@ -1,7 +1,7 @@
 name: thinpic_flutter
 description: "A Flutter image compression library using the powerful C language VIPS library"
-version: 0.0.5
-homepage: http://framira.com/
+version: 0.0.6
+homepage: https://thinpic.com/
 repository: https://github.com/bhumit822/thinpic_flutter
 
 topics:
